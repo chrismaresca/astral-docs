@@ -56,19 +56,21 @@ def update_file(file_path):
     updated = False
 
     # Update or insert lastUpdated field.
-    last_updated_pattern = re.compile(r'(lastUpdated:\s*").*?(")')
-    new_last_updated_line = f'lastUpdated: "{last_mod}"'
-    if last_updated_pattern.search(content):
-        new_content, count = last_updated_pattern.subn(r'\1' + last_mod + r'\2', content)
+    # Check for placeholder pattern {LAST_UPDATED} as well as any existing timestamp
+    placeholder_pattern = re.compile(r'(lastUpdated:\s*")(\{LAST_UPDATED\}|.*?)(")')
+    if placeholder_pattern.search(content):
+        new_content, count = placeholder_pattern.subn(r'\1' + last_mod + r'\3', content)
         if count > 0:
             content = new_content
             updated = True
     else:
+        # If no lastUpdated field exists, add it
         if content.startswith('---'):
             parts = content.split('---', 2)
             if len(parts) >= 3:
                 frontmatter = parts[1]
                 rest = parts[2]
+                new_last_updated_line = f'lastUpdated: "{last_mod}"'
                 frontmatter += f'\n{new_last_updated_line}\n'
                 content = f'---{frontmatter}---{rest}'
                 updated = True
