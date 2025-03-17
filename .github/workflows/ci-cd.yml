@@ -36,13 +36,26 @@ jobs:
             MODIFIED_FILES=$(git ls-files | grep -E '^docs/.*\.(md|mdx)$' || echo '')
           fi
           
-          # Format the output to handle the new file structure with numbered prefixes
-          FORMATTED_FILES=""
-          for file in $MODIFIED_FILES; do
-            echo "Processing file: $file"
-            FORMATTED_FILES="$FORMATTED_FILES $file"
+          # Store files in outputs for next steps
+          echo "Modified files: $MODIFIED_FILES"
+          if [ -n "$MODIFIED_FILES" ]; then
+            echo "files=$MODIFIED_FILES" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update last updated and version metadata
+        if: steps.get_modified.outputs.has_changes == 'true'
+        run: |
+          # Read the file list and pass each file individually
+          for file in ${{ steps.get_modified.outputs.files }}; do
+            if [ -f "$file" ]; then
+              echo "Processing: $file"
+              python scripts/update_last_updated.py "$file"
+            fi
           done
-          
+
       - name: Replace component placeholders
         run: |
           python scripts/replace_components.py
