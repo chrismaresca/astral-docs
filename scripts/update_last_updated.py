@@ -1,26 +1,46 @@
 #!/usr/bin/env python3
+# -------------------------------------------------------------------------------- #
+# Last Updated Metadata Updater
+# -------------------------------------------------------------------------------- #
+
+# -------------------------------------------------------------------------------- #
+# Imports
+# -------------------------------------------------------------------------------- #
+# Built-in imports
 import sys
 import subprocess
 import re
 import os
 
+# -------------------------------------------------------------------------------- #
+# Helper Functions
+# -------------------------------------------------------------------------------- #
 def get_last_modified(file_path):
+    """
+    Get the last modification date of a file from git history.
+    
+    Args:
+        file_path (str): Path to the file
+        
+    Returns:
+        str or None: Last modification date in ISO format or None if not found
+    """
     try:
         output = subprocess.check_output(["git", "log", "-1", "--format=%ci", file_path], encoding="utf-8")
         return output.strip()
     except subprocess.CalledProcessError:
         return None
 
-def infer_version(file_path):
-    # Assumes the structure: docs/<version>/...
-    parts = file_path.split(os.sep)
-    try:
-        docs_index = parts.index("docs")
-        return parts[docs_index + 1]
-    except (ValueError, IndexError):
-        return ""
-
 def update_file(file_path):
+    """
+    Update the lastUpdated field in the frontmatter of an MDX file.
+    
+    Args:
+        file_path (str): Path to the MDX file
+        
+    Returns:
+        bool: True if file was updated, False otherwise
+    """
     if not os.path.exists(file_path):
         print(f"File not found: {file_path}")
         return False
@@ -29,7 +49,6 @@ def update_file(file_path):
         content = f.read()
 
     last_mod = get_last_modified(file_path)
-    version = infer_version(file_path)
     if not last_mod:
         print(f"Could not determine last modified time for {file_path}")
         return False
@@ -40,7 +59,7 @@ def update_file(file_path):
     last_updated_pattern = re.compile(r'(lastUpdated:\s*").*?(")')
     new_last_updated_line = f'lastUpdated: "{last_mod}"'
     if last_updated_pattern.search(content):
-        new_content, count = last_updated_pattern.subn(new_last_updated_line, content)
+        new_content, count = last_updated_pattern.subn(r'\1' + last_mod + r'\2', content)
         if count > 0:
             content = new_content
             updated = True
@@ -54,30 +73,15 @@ def update_file(file_path):
                 content = f'---{frontmatter}---{rest}'
                 updated = True
 
-    # Update or insert version field.
-    version_pattern = re.compile(r'(version:\s*").*?(")')
-    new_version_line = f'version: "{version}"'
-    if version_pattern.search(content):
-        new_content, count = version_pattern.subn(new_version_line, content)
-        if count > 0:
-            content = new_content
-            updated = True
-    else:
-        if content.startswith('---'):
-            parts = content.split('---', 2)
-            if len(parts) >= 3:
-                frontmatter = parts[1]
-                rest = parts[2]
-                frontmatter += f'\n{new_version_line}\n'
-                content = f'---{frontmatter}---{rest}'
-                updated = True
-
     if updated:
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
-        print(f"Updated metadata for {file_path}")
+        print(f"Updated lastUpdated metadata for {file_path}")
     return updated
 
+# -------------------------------------------------------------------------------- #
+# Main Execution
+# -------------------------------------------------------------------------------- #
 if __name__ == "__main__":
     modified_files = sys.argv[1:]
     updated_any = False
