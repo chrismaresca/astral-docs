@@ -27,7 +27,13 @@ def get_last_modified(file_path):
     """
     try:
         output = subprocess.check_output(["git", "log", "-1", "--format=%ci", file_path], encoding="utf-8")
-        return output.strip()
+        # Convert to simple YYYY-MM-DD format
+        date_str = output.strip()
+        if date_str:
+            # Extract just the date portion (YYYY-MM-DD) from the git timestamp
+            date_only = date_str.split()[0]
+            return date_only
+        return None
     except subprocess.CalledProcessError:
         return None
 
@@ -54,23 +60,33 @@ def update_file(file_path):
         return False
 
     updated = False
+    new_last_updated_line = f'lastUpdated: "{last_mod}"'
 
-    # Update or insert lastUpdated field.
-    # Check for placeholder pattern {LAST_UPDATED} as well as any existing timestamp
-    placeholder_pattern = re.compile(r'(lastUpdated:\s*")(\{LAST_UPDATED\}|.*?)(")')
-    if placeholder_pattern.search(content):
-        new_content, count = placeholder_pattern.subn(r'\1' + last_mod + r'\3', content)
-        if count > 0:
-            content = new_content
-            updated = True
-    else:
-        # If no lastUpdated field exists, add it
-        if content.startswith('---'):
-            parts = content.split('---', 2)
-            if len(parts) >= 3:
-                frontmatter = parts[1]
-                rest = parts[2]
-                new_last_updated_line = f'lastUpdated: "{last_mod}"'
+    # First, look for the existing frontmatter
+    if content.startswith('---'):
+        parts = content.split('---', 2)
+        if len(parts) >= 3:
+            frontmatter = parts[1]
+            rest = parts[2]
+            
+            # Check if lastUpdated already exists in any form
+            last_updated_exists = re.search(r'lastUpdated:', frontmatter)
+            
+            # Handle existing lastUpdated field
+            if last_updated_exists:
+                # Replace the entire line containing lastUpdated
+                lines = frontmatter.split('\n')
+                new_lines = []
+                for line in lines:
+                    if line.strip().startswith('lastUpdated:'):
+                        new_lines.append(new_last_updated_line)
+                    else:
+                        new_lines.append(line)
+                new_frontmatter = '\n'.join(new_lines)
+                content = f'---{new_frontmatter}---{rest}'
+                updated = True
+            else:
+                # Add new lastUpdated field
                 frontmatter += f'\n{new_last_updated_line}\n'
                 content = f'---{frontmatter}---{rest}'
                 updated = True
