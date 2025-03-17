@@ -35,9 +35,13 @@ jobs:
           else
             MODIFIED_FILES=$(git ls-files | grep -E '^docs/.*\.(md|mdx)$' || echo '')
           fi
-          echo "modified_files=$MODIFIED_FILES" >> $GITHUB_OUTPUT
-          echo "Modified files: $MODIFIED_FILES"
-
+          
+          # Format the output to handle the new file structure with numbered prefixes
+          FORMATTED_FILES=""
+          for file in $MODIFIED_FILES; do
+            echo "Processing file: $file"
+            FORMATTED_FILES="$FORMATTED_FILES $file"
+          done
           
       - name: Replace component placeholders
         run: |
