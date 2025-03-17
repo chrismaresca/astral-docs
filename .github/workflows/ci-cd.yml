@@ -48,7 +48,6 @@ jobs:
           fi
 
       - name: Update last updated and version metadata
-        if: steps.get_modified.outputs.has_changes == 'true'
         run: |
           # Read the file list and pass each file individually
           for file in ${{ steps.get_modified.outputs.files }}; do
