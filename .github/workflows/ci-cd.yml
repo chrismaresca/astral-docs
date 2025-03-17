@@ -1,0 +1,56 @@
+name: Pepare Documentation
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  update-docs:
+    name: Update Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Get list of modified Markdown files
+        id: get_modified
+        run: |
+          # If there is a previous commit, get changes from HEAD~1 to HEAD.
+          # Otherwise (first commit or shallow clone), list all Markdown files.
+          if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            MODIFIED_FILES=$(git diff --name-only HEAD~1 HEAD | grep -E '^docs/.*\.(md|mdx)$' || echo '')
+          else
+            MODIFIED_FILES=$(git ls-files | grep -E '^docs/.*\.(md|mdx)$' || echo '')
+          fi
+          echo "modified_files=$MODIFIED_FILES" >> $GITHUB_OUTPUT
+          echo "Modified files: $MODIFIED_FILES"
+
+          
+      - name: Replace component placeholders
+        run: |
+          python scripts/replace_components.py
+
+      - name: Commit updated docs if changes exist
+        run: |
+          git config --global user.name "Chris Maresca"
+          git config --global user.email "chris@chrismaresca.dev"
+          git add docs
+          if ! git diff --cached --quiet; then
+            git commit -m "Auto-update lastUpdated metadata, version fields, and component placeholders"
+            git push "https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" HEAD:${{ github.ref_name }}
+          else
+            echo "No changes to commit."
+          fi
